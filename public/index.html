@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rabbit Maps API Test</title>
+  <link rel="stylesheet" href="https://unpkg.com/flowbite@1.5.3/dist/flowbite.min.css" />
+
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      height: 100%;
+    }
+  </style>
+
+</head>
+<body>
+<div id="map"></div>
+<div id="query" class="absolute top-28 left-8 shadow-md w-96  rounded-lg bg-white">
+  <div class="p-4 flex flex-col space-y-4 relative">
+    <div>
+      <label for="origin" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Çıkış Adresi</label>
+      <input type="text" id="origin"
+
+             class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+             placeholder="Ümraniye, Beykoz, vb." required>
+    </div>
+    <div>
+      <label for="destination" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Varış Adresi</label>
+      <input type="text" id="destination"
+             class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+             placeholder="Ümraniye, Beykoz, vb." required>
+    </div>
+    <button type="button"
+            onclick="calcRoute()"
+            class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 w-full">
+      Hesapla
+    </button>
+
+  </div>
+
+</div>
+<div id="query-result" class="absolute left-8 bg-white rounded-md shadow h-96 w-96 p-4 flex flex-col space-y-2" style="top:380px">
+  <div class="flex items-center justify-between" id="car_price"></div>
+  <div class="flex items-center justify-between" id="motor_price"></div>
+  <div class="flex items-center justify-between" id="car_km_traffic_price"></div>
+  <div class="flex items-center justify-between" id="car_distance_price"></div>
+  <div class="flex items-center justify-between" id="motorcycle_distance_price"></div>
+  <div class="flex items-center justify-between" id="distance"></div>
+  <div class="flex items-center justify-between" id="duration"></div>
+  <div class="flex items-center justify-between" id="duration_in_traffic"></div>
+  <div class="flex items-center justify-between" id="duration_by_km"></div>
+  <div class="flex items-center justify-between" id="traffic_statue_value"></div>
+  <div class="flex items-center justify-between" id="toll_price_included"></div>
+</div>
+<div id="map-pane" class="absolute top-28 right-5 shadow-md w-96 h-96 overflow-y-auto  rounded-lg bg-white p-4">
+</div>
+<script src="https://unpkg.com/flowbite@1.5.3/dist/flowbite.js"></script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCICTNwA7DuGhVVvJLLWAVQdygh8ipdRVA&libraries=places&callback=initMap" defer></script>
+<script>
+  let map;
+  const origin_input = document.getElementById("origin");
+  const destination_input = document.getElementById("destination");
+  let origin_autocomplete = null;
+  let destination_autocomplete = null;
+  var directionsService = null;
+  var directionsRenderer = null;
+
+  function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 41.010936419357286, lng: 28.980586423996822 },
+      zoom: 10
+    });
+    directionsService = new google.maps.DirectionsService();
+    directionsRenderer = new google.maps.DirectionsRenderer();
+    directionsRenderer.setMap(map);
+
+    directionsRenderer.setPanel(document.getElementById("map-pane"));
+
+
+    const options = {
+      componentRestrictions: { country: "tr" },
+      fields: ["address_components", "geometry"],
+      strictBounds: false
+    };
+    origin_autocomplete = new google.maps.places.Autocomplete(origin_input, options);
+    destination_autocomplete = new google.maps.places.Autocomplete(destination_input, options);
+
+
+  }
+
+  function calcRoute() {
+    var start = origin_autocomplete.getPlace().geometry.location;
+    var end = destination_autocomplete.getPlace().geometry.location;
+    var request = {
+      origin: {
+        lat: start.lat(),
+        lng: start.lng()
+      },
+      destination: {
+        lat: end.lat(),
+        lng: end.lng()
+      },
+      travelMode: "DRIVING"
+    };
+    directionsService.route(request, function(response, status) {
+      if (status == "OK") {
+        directionsRenderer.setDirections(response);
+      }
+    });
+    (async () => {
+      let res = (await (await fetch("getPriceCalculation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          origin: {
+            latitude: start.lat(),
+            longitude: start.lng()
+          },
+          destination: {
+            latitude: end.lat(),
+            longitude: end.lng()
+          }
+        })
+      })).json());
+      document.getElementById("car_price").innerHTML = `<div>Araba Fiyatı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.car_price} TL</div>`;
+      document.getElementById("car_km_traffic_price").innerHTML = `<div>Araba KM Trafik Fiyatı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.car_km_traffic_price} TL</div>`;
+      document.getElementById("car_distance_price").innerHTML = `<div>Araba Uzaklık Fiyatı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.car_distance_price} TL</div>`;
+      document.getElementById("motor_price").innerHTML = `<div>Motor Fiyatı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.motorcycle_price} TL</div>`;
+      document.getElementById("motorcycle_distance_price").innerHTML = `<div>Motor Uzaklık Fiyatı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.motorcycle_distance_price} TL</div>`;
+      document.getElementById("distance").innerHTML = `<div>KM Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.distance} KM</div>`;
+      document.getElementById("duration").innerHTML = `<div>Dakika Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration} DK</div>`;
+      document.getElementById("duration_in_traffic").innerHTML = `<div>Trafikli Dakika Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration_in_traffic} DK</div>`;
+      document.getElementById("duration_by_km").innerHTML = `<div>DK / KM</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration_by_km}</div>`;
+      document.getElementById("traffic_statue_value").innerHTML = `<div>Trafik Statü Değeri</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.traffic_statue_value}</div>`;
+      document.getElementById("toll_price_included").innerHTML = `<div>Köprüden geçiyor mu?</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.toll_price_included ? "Evet" : "Hayır"}</div>`;
+    })();
+  }
+
+  window.initMap = initMap;
+</script>
+</body>
+</html>

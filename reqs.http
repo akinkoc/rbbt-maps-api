@@ -1,0 +1,14 @@
+POST http://localhost:3000/getPriceCalculation
+Content-Type: application/json
+
+{
+  "origin": {
+    "latitude":41.219509905622836 ,
+    "longitude":29.023604810544956
+  },
+  "destination": {
+    "latitude": 41.15388300574036,
+    "longitude": 29.17947333016962
+  }
+}
+
