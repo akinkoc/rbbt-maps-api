@@ -13,7 +13,7 @@ const client = new Client({});
 
 app.use(limiter);
 app.use(express.json());
-app.use(express.static("public"))
+app.use(express.static("public"));
 app.post(
   "/getDirections",
   param("token", "Token is required").notEmpty().withMessage("Token is missing"),
@@ -212,17 +212,26 @@ app.post(
           motorcycle_price = 0;
         if (data.rows.length > 0) {
           if (data.rows[0].elements.length > 0) {
-            const distance = Number((data.rows[0].elements[0].distance.value / 1000).toFixed(2));
-            const duration = Number((data.rows[0].elements[0].duration.value / 60).toFixed(2));
-            const duration_in_traffic = Number((data.rows[0].elements[0].duration_in_traffic.value / 60).toFixed(2));
+            let distance = Number((data.rows[0].elements[0].distance.value / 1000).toFixed(2));
+            let duration = Number((data.rows[0].elements[0].duration.value / 60).toFixed(2));
+            let duration_in_traffic = Number((data.rows[0].elements[0].duration_in_traffic.value / 60).toFixed(2));
+            if (duration > duration_in_traffic) {
+              let temp_duration_in_trraffic = duration_in_traffic;
+              duration_in_traffic = duration;
+              duration = temp_duration_in_trraffic;
+            }
             const duration_by_km = Number((duration_in_traffic / distance).toFixed(2));
+            // const duration_by_km = 1.99;
             let traffic_statue_value = 0;
             if (duration_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && duration_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
             if (duration_by_km > Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID) && duration_by_km < Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.05;
-            if (duration_by_km > Number(process.env.DENSE)) traffic_statue_value = 0.1;
+            if (duration_by_km > Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.1;
+
 
             if (distance < Number(process.env.APP_MIN_KM)) {
-              car_price = Number(process.env.CAR_START_PRICE);
+              const car_duration_price = Number((duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
+              const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2))
+              car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
               motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
               res.json({
                 car_price: car_price,
@@ -230,13 +239,14 @@ app.post(
                 distance: distance,
                 duration: duration,
                 duration_in_traffic: duration_in_traffic,
-                traffic_statue_value: traffic_statue_value
+                traffic_statue_value: traffic_statue_value,
+                duration_by_km
               });
             } else {
               const subsitude_distance = distance - Number(process.env.APP_MIN_KM);
               const car_distance_price = Number((subsitude_distance * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
-              const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
               const car_km_traffic_price = Number(((Number(process.env.CAR_START_PRICE) + car_distance_price) * traffic_statue_value).toFixed(2));
+              const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
               let car_price = Number((Number(process.env.CAR_START_PRICE) + car_distance_price + car_km_traffic_price).toFixed(2));
               let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
               let mapsConveyor = new MapsConveyor(origin, destination);
@@ -291,7 +301,9 @@ app.post(
       );
   }
 );
-
-app.listen(PORT, () => {
+app.listen(PORT, "192.168.1.48", () => {
   console.log(`PORT LISTENING ON : ${PORT}`);
 });
+// app.listen(PORT, () => {
+//   console.log(`PORT LISTENING ON : ${PORT}`);
+// });
