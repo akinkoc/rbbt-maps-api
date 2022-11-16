@@ -197,14 +197,15 @@ app.post(
       return res.json(err.mapped());
     }
     const { origin, destination } = req.body;
+    console.log(origin,destination);
     client
       .distancematrix({
         params: {
           key: process.env.GOOGLE_MAPS_API_KEY,
-          origins: [origin],
-          destinations: [destination],
+          origins: [[origin.latitude, origin.longitude]],
+          destinations: [[destination.latitude, destination.longitude]],
           departure_time: "now",
-          traffic_model: TrafficModel.best_guess
+          traffic_model: TrafficModel.optimistic
         }
       })
       .then(({ data }: DistanceMatrixResponse) => {
@@ -230,7 +231,7 @@ app.post(
 
             if (distance < Number(process.env.APP_MIN_KM)) {
               const car_duration_price = Number((duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
-              const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2))
+              const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
               car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
               motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
               res.json({
@@ -253,7 +254,7 @@ app.post(
               let toll_price_included = false;
               mapsConveyor.checkIfInside([
                 {
-                  check: "avraysa",
+                  check: "avrasya",
                   car_price: 50,
                   motor_price: 20
                 },
@@ -301,9 +302,11 @@ app.post(
       );
   }
 );
-app.listen(PORT, "192.168.1.48", () => {
-  console.log(`PORT LISTENING ON : ${PORT}`);
-});
-// app.listen(PORT, () => {
+
+// app.listen(PORT, "192.168.1.48", () => {
 //   console.log(`PORT LISTENING ON : ${PORT}`);
 // });
+
+app.listen(PORT, () => {
+  console.log(`PORT LISTENING ON : ${PORT}`);
+});

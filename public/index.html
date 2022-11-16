@@ -24,14 +24,14 @@
 <div id="query" class="absolute top-28 left-8 shadow-md  rounded-lg bg-white" style=" width: 420px;">
   <div class="p-4 flex flex-col space-y-4 relative">
     <div>
-      <label for="origin" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Çıkış Adresi</label>
+      <label for="origin" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Çıkış Adresi (Enlem, Boylam)</label>
       <input type="text" id="origin"
 
              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
              placeholder="Ümraniye, Beykoz, vb." required>
     </div>
     <div>
-      <label for="destination" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Varış Adresi</label>
+      <label for="destination" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Varış Adresi (Enlem, Boylam)</label>
       <input type="text" id="destination"
              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
              placeholder="Ümraniye, Beykoz, vb." required>
@@ -54,15 +54,16 @@
   <div class="flex items-center justify-between" id="duration_by_km"></div>
   <div class="flex items-center justify-between" id="traffic_statue_value"></div>
   <div class="flex items-center justify-between" id="toll_price_included"></div>
-<!--  <div class="flex items-center justify-between" id="car_km_traffic_price"></div>-->
-<!--  <div class="flex items-center justify-between" id="car_distance_price"></div>-->
-<!--  <div class="flex items-center justify-between" id="motorcycle_distance_price"></div>-->
+  <!--  <div class="flex items-center justify-between" id="car_km_traffic_price"></div>-->
+  <!--  <div class="flex items-center justify-between" id="car_distance_price"></div>-->
+  <!--  <div class="flex items-center justify-between" id="motorcycle_distance_price"></div>-->
 </div>
 <div id="map-pane" class="absolute top-28 right-5 shadow-md w-96 h-96 overflow-y-auto  rounded-lg bg-white p-4" style=" width: 420px;">
 </div>
 <script src="https://unpkg.com/flowbite@1.5.3/dist/flowbite.js"></script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCICTNwA7DuGhVVvJLLWAVQdygh8ipdRVA&libraries=places&callback=initMap" defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB-kDiuZ6Ci_VSYLA51Ljc9nPJPA_x61OQ&libraries=places&callback=initMap" defer></script>
+
 <script>
   let map;
   const origin_input = document.getElementById("origin");
@@ -86,26 +87,44 @@
 
     const options = {
       componentRestrictions: { country: "tr" },
+//rwbsulgrubbxnbwa
       fields: ["address_components", "geometry"],
       strictBounds: false
     };
-    origin_autocomplete = new google.maps.places.Autocomplete(origin_input, options);
-    destination_autocomplete = new google.maps.places.Autocomplete(destination_input, options);
+    // origin_autocomplete = new google.maps.places.Autocomplete(origin_input, options);
+    // destination_autocomplete = new google.maps.places.Autocomplete(destination_input, options);
+    let infoWindow = new google.maps.InfoWindow();
 
+    map.addListener("click", (mapsMouseEvent) => {
+      // Close the current InfoWindow.
+      infoWindow.close();
+
+      // Create a new InfoWindow.
+      infoWindow = new google.maps.InfoWindow({
+        position: mapsMouseEvent.latLng
+      });
+      console.log(mapsMouseEvent.latLng);
+      infoWindow.setContent(
+        mapsMouseEvent.latLng.lat() + "," + mapsMouseEvent.latLng.lng()
+      );
+      infoWindow.open(map);
+    });
 
   }
 
   function calcRoute() {
-    var start = origin_autocomplete.getPlace().geometry.location;
-    var end = destination_autocomplete.getPlace().geometry.location;
+    // var start = origin_autocomplete.getPlace().geometry.location;
+    // var end = destination_autocomplete.getPlace().geometry.location;
+    var start_loc = origin_input.value.split(",");
+    var end_loc = destination_input.value.split(",");
     var request = {
       origin: {
-        lat: start.lat(),
-        lng: start.lng()
+        lat: Number(start_loc[0]),
+        lng: Number(start_loc[1])
       },
       destination: {
-        lat: end.lat(),
-        lng: end.lng()
+        lat: Number(end_loc[0]),
+        lng: Number(end_loc[1])
       },
       travelMode: "DRIVING"
     };
@@ -122,12 +141,12 @@
         },
         body: JSON.stringify({
           origin: {
-            latitude: start.lat(),
-            longitude: start.lng()
+            latitude: Number(start_loc[0]),
+            longitude: Number(start_loc[1])
           },
           destination: {
-            latitude: end.lat(),
-            longitude: end.lng()
+            latitude: Number(end_loc[0]),
+            longitude: Number(end_loc[1])
           }
         })
       })).json());
