@@ -6,7 +6,6 @@ import MapsConveyor from "./utils/MapsConveyor";
 import { AxiosError } from "axios";
 
 const app = express();
-const PORT = 4000;
 const { Client } = require("@googlemaps/google-maps-services-js");
 require("dotenv").config();
 
@@ -408,10 +407,10 @@ app.post(
   }
 );
 
-app.listen(PORT, "192.168.1.18", () => {
-console.log(`PORT LISTENING ON : ${PORT}`);
-});
-
-// app.listen(PORT, () => {
-//   console.log(`PORT LISTENING ON : ${PORT}`);
+// app.listen(Number(process.env.PORT) || 3000, "192.168.1.18", () => {
+// console.log(`PORT LISTENING ON : ${process.env.PORT}`);
 // });
+
+app.listen(Number(process.env.PORT) || 3000, () => {
+  console.log(`PORT LISTENING ON : ${Number(process.env.PORT)}`);
+});
