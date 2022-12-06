@@ -406,11 +406,11 @@ app.post(
     //   );
   }
 );
-
+app.listen(Number(process.env.PORT) || 3000, () => {
+  console.log(`PORT LISTENING ON : ${Number(process.env.PORT)}`);
+});
 // app.listen(Number(process.env.PORT) || 3000, "192.168.1.18", () => {
 // console.log(`PORT LISTENING ON : ${process.env.PORT}`);
 // });
 
-app.listen(Number(process.env.PORT) || 3000, () => {
-  console.log(`PORT LISTENING ON : ${Number(process.env.PORT)}`);
-});
+
