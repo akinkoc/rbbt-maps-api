@@ -1,11 +1,12 @@
 import express, { Request, Response } from "express";
-import { DirectionsResponse, DistanceMatrixResponse, TrafficModel } from "@googlemaps/google-maps-services-js";
+import { DirectionsResponse, DistanceMatrixResponse, TrafficModel, TravelMode } from "@googlemaps/google-maps-services-js";
 import limiter from "./utils/limiter";
 import { body, param, validationResult } from "express-validator";
 import MapsConveyor from "./utils/MapsConveyor";
+import { AxiosError } from "axios";
 
 const app = express();
-const PORT = 3000;
+const PORT = 4000;
 const { Client } = require("@googlemaps/google-maps-services-js");
 require("dotenv").config();
 
@@ -80,7 +81,7 @@ app.post(
     .isLength({
       min: 3
     })
-    .withMessage("Input must be minimum 3 character and maximum 30 character."),
+    .withMessage("Input must be best_guessimum 3 character and maximum 30 character."),
   body("session_id").notEmpty({ ignore_whitespace: true }).withMessage("Session ID cannot be null"),
   (req: Request, res: Response) => {
     const err = validationResult(req);
@@ -197,116 +198,220 @@ app.post(
       return res.json(err.mapped());
     }
     const { origin, destination } = req.body;
-    console.log(origin,destination);
     client
-      .distancematrix({
+      .directions({
         params: {
           key: process.env.GOOGLE_MAPS_API_KEY,
-          origins: [[origin.latitude, origin.longitude]],
-          destinations: [[destination.latitude, destination.longitude]],
+          mode: TravelMode.driving,
+          origin: `${origin.latitude},${origin.longitude}`,
+          destination: `${destination.latitude},${destination.longitude}`,
           departure_time: "now",
-          traffic_model: TrafficModel.optimistic
+          alternatives: true,
+          traffic_model: TrafficModel.best_guess
         }
       })
-      .then(({ data }: DistanceMatrixResponse) => {
-        let car_price = 0,
-          motorcycle_price = 0;
-        if (data.rows.length > 0) {
-          if (data.rows[0].elements.length > 0) {
-            let distance = Number((data.rows[0].elements[0].distance.value / 1000).toFixed(2));
-            let duration = Number((data.rows[0].elements[0].duration.value / 60).toFixed(2));
-            let duration_in_traffic = Number((data.rows[0].elements[0].duration_in_traffic.value / 60).toFixed(2));
-            if (duration > duration_in_traffic) {
-              let temp_duration_in_trraffic = duration_in_traffic;
-              duration_in_traffic = duration;
-              duration = temp_duration_in_trraffic;
-            }
-            const duration_by_km = Number((duration_in_traffic / distance).toFixed(2));
-            // const duration_by_km = 1.99;
-            let traffic_statue_value = 0;
-            if (duration_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && duration_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
-            if (duration_by_km > Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID) && duration_by_km < Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.05;
-            if (duration_by_km > Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.1;
-
-
-            if (distance < Number(process.env.APP_MIN_KM)) {
-              const car_duration_price = Number((duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
-              const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
-              car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
-              motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
-              res.json({
-                car_price: car_price,
-                motorcycle_price: motorcycle_price,
-                distance: distance,
-                duration: duration,
-                duration_in_traffic: duration_in_traffic,
-                traffic_statue_value: traffic_statue_value,
-                duration_by_km
-              });
-            } else {
-              const subsitude_distance = distance - Number(process.env.APP_MIN_KM);
-              const car_distance_price = Number((subsitude_distance * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
-              const car_km_traffic_price = Number(((Number(process.env.CAR_START_PRICE) + car_distance_price) * traffic_statue_value).toFixed(2));
-              const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
-              let car_price = Number((Number(process.env.CAR_START_PRICE) + car_distance_price + car_km_traffic_price).toFixed(2));
-              let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
-              let mapsConveyor = new MapsConveyor(origin, destination);
-              let toll_price_included = false;
-              mapsConveyor.checkIfInside([
-                {
-                  check: "avrasya",
-                  car_price: 50,
-                  motor_price: 20
-                },
-                {
-                  check: "o-7",
-                  car_price: 20,
-                  motor_price: 20
-                }
-              ]).then(({ inside, car_price: car_toll_price, motor_price: motor_toll_price }) => {
-                if (inside) {
-                  car_price += car_toll_price;
-                  motorcycle_price += motor_toll_price;
-                  toll_price_included = true;
-                }
-                return res.json({
-                  car_price,
-                  motorcycle_price,
-                  car_km_traffic_price,
-                  motorcycle_distance_price,
-                  car_distance_price,
-                  distance,
-                  duration,
-                  duration_in_traffic,
-                  duration_by_km,
-                  traffic_statue_value,
-                  toll_price_included
-                });
-              });
-            }
-          } else {
-            res.status(409).json({
-              message: "There is no location for giving location"
+      .then(({ data }: DirectionsResponse) => {
+        const { routes } = data;
+        if (!routes || routes.length === 0) return;
+        let routeCalculetes: any = [];
+        routes.forEach((route) => {
+          if (!route.legs || route.legs.length === 0) return;
+          route.legs.forEach((leg) => {
+            // FOR MINIMUM DISTANCE CALCULATION
+            let distance = Number((leg.distance.value / 1000).toFixed(2));
+            // FOR MINIMUM DURATION CALCULATION
+            let duration = Number((leg.duration.value / 60).toFixed(2));
+            // FOR MINIMUM DURATION IN TRAFFIC CALCULATION
+            let duration_in_traffic = Number(((leg.duration_in_traffic?.value ?? 1) / 60).toFixed(2));
+            routeCalculetes.push({
+              minute_by_km: duration_in_traffic / distance,
+              duration,
+              distance,
+              duration_in_traffic
             });
-          }
+          });
+        });
+        console.log(routeCalculetes);
+        let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] < x[f] ? m : x);
+        let car_price, motorcycle_price = 0;
+        let best_guess = min(routeCalculetes, "minute_by_km");
+
+        let traffic_statue_value = 0;
+        if (best_guess.minute_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && best_guess.minute_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
+        if (best_guess.minute_by_km > Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID) && best_guess.minute_by_km < Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.05;
+        if (best_guess.minute_by_km > Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.1;
+        if (best_guess.distance < Number(process.env.APP_MIN_KM)) {
+          const car_duration_price = Number((best_guess.duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
+          const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
+          car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
+          motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
+          console.log({
+            car_duration_price,
+            car_km_traffic_price
+          });
+          res.json({
+            car_price: car_price,
+            motorcycle_price: motorcycle_price,
+            distance: best_guess.distance,
+            duration: best_guess.duration,
+            duration_in_traffic: best_guess.duration_in_traffic,
+            traffic_statue_value: traffic_statue_value,
+            minute_by_km: best_guess.minute_by_km
+          });
         } else {
-          res.status(409).json({
-            message: "There is no path for giving location"
+          const subsitude_distance = best_guess.distance - Number(process.env.APP_MIN_KM);
+          const car_distance_price = Number((subsitude_distance * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
+          const car_km_traffic_price = Number(((Number(process.env.CAR_START_PRICE) + car_distance_price) * traffic_statue_value).toFixed(2));
+          const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
+          let car_price = Number((Number(process.env.CAR_START_PRICE) + car_distance_price + car_km_traffic_price).toFixed(2));
+          let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
+          let mapsConveyor = new MapsConveyor(origin, destination);
+          let toll_price_included = false;
+          console.log({ subsitude_distance, car_distance_price, car_km_traffic_price, motorcycle_distance_price });
+          mapsConveyor.checkIfInside([
+            {
+              check: "avrasya",
+              car_price: 50,
+              motor_price: 20
+            },
+            {
+              check: "o-7",
+              car_price: 20,
+              motor_price: 20
+            }
+          ]).then(({ inside, car_price: car_toll_price, motor_price: motor_toll_price }) => {
+            if (inside) {
+              car_price += car_toll_price;
+              motorcycle_price += motor_toll_price;
+              toll_price_included = true;
+            }
+            return res.json({
+              car_price,
+              motorcycle_price,
+              car_km_traffic_price,
+              motorcycle_distance_price,
+              car_distance_price,
+              distance: best_guess.distance,
+              duration: best_guess.duration,
+              duration_in_traffic: best_guess.duration_in_traffic,
+              minute_by_km: best_guess.minute_by_km,
+              traffic_statue_value,
+              toll_price_included
+            });
           });
         }
       })
-      .catch(() =>
-        res.status(500).json({
-          message: "Something gone wrong, please try again!"
-        })
-      );
+      .catch((err: AxiosError) => console.log(err));
+
+    // client
+    //   .distancematrix({
+    //     params: {
+    //       key: process.env.GOOGLE_MAPS_API_KEY,
+    //       origins: [[origin.latitude, origin.longitude]],
+    //       destinations: [[destination.latitude, destination.longitude]],
+    //       provideRouteAlternatives: true
+    //     }
+    //   })
+    //   .then(({ data }: DistanceMatrixResponse) => {
+    //     console.log(data.rows[0].elements);
+    //     let car_price = 0,
+    //       motorcycle_price = 0;
+    //     if (data.rows.length > 0) {
+    //       if (data.rows[0].elements.length > 0) {
+    //         let distance = Number((data.rows[0].elements[0].distance.value / 1000).toFixed(2));
+    //         let duration = Number((data.rows[0].elements[0].duration.value / 60).toFixed(2));
+    //         let duration_in_traffic = Number((data.rows[0].elements[0].duration_in_traffic.value / 60).toFixed(2));
+    //         if (duration > duration_in_traffic) {
+    //           let temp_duration_in_trraffic = duration_in_traffic;
+    //           duration_in_traffic = duration;
+    //           duration = temp_duration_in_trraffic;
+    //         }
+    //         const minute_by_km = Number((duration_in_traffic / distance).toFixed(2));
+    //         // const minute_by_km = 1.99;
+    //         let traffic_statue_value = 0;
+    //         if (minute_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && minute_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
+    //         if (minute_by_km > Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID) && minute_by_km < Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.05;
+    //         if (minute_by_km > Number(process.env.TRAFFIC_STATUE_DENSE)) traffic_statue_value = 0.1;
+    //
+    //
+    //         if (distance < Number(process.env.APP_MIN_KM)) {
+    //           const car_duration_price = Number((duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
+    //           const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
+    //           car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
+    //           motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
+    //           res.json({
+    //             car_price: car_price,
+    //             motorcycle_price: motorcycle_price,
+    //             distance: distance,
+    //             duration: duration,
+    //             duration_in_traffic: duration_in_traffic,
+    //             traffic_statue_value: traffic_statue_value,
+    //             minute_by_km
+    //           });
+    //         } else {
+    //           const subsitude_distance = distance - Number(process.env.APP_MIN_KM);
+    //           const car_distance_price = Number((subsitude_distance * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
+    //           const car_km_traffic_price = Number(((Number(process.env.CAR_START_PRICE) + car_distance_price) * traffic_statue_value).toFixed(2));
+    //           const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
+    //           let car_price = Number((Number(process.env.CAR_START_PRICE) + car_distance_price + car_km_traffic_price).toFixed(2));
+    //           let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
+    //           let mapsConveyor = new MapsConveyor(origin, destination);
+    //           let toll_price_included = false;
+    //           mapsConveyor.checkIfInside([
+    //             {
+    //               check: "avrasya",
+    //               car_price: 50,
+    //               motor_price: 20
+    //             },
+    //             {
+    //               check: "o-7",
+    //               car_price: 20,
+    //               motor_price: 20
+    //             }
+    //           ]).then(({ inside, car_price: car_toll_price, motor_price: motor_toll_price }) => {
+    //             if (inside) {
+    //               car_price += car_toll_price;
+    //               motorcycle_price += motor_toll_price;
+    //               toll_price_included = true;
+    //             }
+    //             return res.json({
+    //               car_price,
+    //               motorcycle_price,
+    //               car_km_traffic_price,
+    //               motorcycle_distance_price,
+    //               car_distance_price,
+    //               distance,
+    //               duration,
+    //               duration_in_traffic,
+    //               minute_by_km,
+    //               traffic_statue_value,
+    //               toll_price_included
+    //             });
+    //           });
+    //         }
+    //       } else {
+    //         res.status(409).json({
+    //           message: "There is no location for giving location"
+    //         });
+    //       }
+    //     } else {
+    //       res.status(409).json({
+    //         message: "There is no path for giving location"
+    //       });
+    //     }
+    //   })
+    //   .catch(() =>
+    //     res.status(500).json({
+    //       message: "Something gone wrong, please try again!"
+    //     })
+    //   );
   }
 );
 
-// app.listen(PORT, "192.168.1.48", () => {
+app.listen(PORT, "192.168.1.18", () => {
+console.log(`PORT LISTENING ON : ${PORT}`);
+});
+
+// app.listen(PORT, () => {
 //   console.log(`PORT LISTENING ON : ${PORT}`);
 // });
-
-app.listen(PORT, () => {
-  console.log(`PORT LISTENING ON : ${PORT}`);
-});

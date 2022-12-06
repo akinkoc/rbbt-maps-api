@@ -26,13 +26,14 @@
     <div>
       <label for="origin" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Çıkış Adresi (Enlem, Boylam)</label>
       <input type="text" id="origin"
-
+            value="41.07832232321878, 29.00806082625493"
              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
              placeholder="Ümraniye, Beykoz, vb." required>
     </div>
     <div>
       <label for="destination" class="block mb-2 text-sm font-medium text-gray-900 dark:text-gray-300">Varış Adresi (Enlem, Boylam)</label>
       <input type="text" id="destination"
+             value="41.03023249210758, 29.05863214794609"
              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
              placeholder="Ümraniye, Beykoz, vb." required>
     </div>
@@ -51,7 +52,7 @@
   <div class="flex items-center justify-between" id="distance"></div>
   <div class="flex items-center justify-between" id="duration"></div>
   <div class="flex items-center justify-between" id="duration_in_traffic"></div>
-  <div class="flex items-center justify-between" id="duration_by_km"></div>
+  <div class="flex items-center justify-between" id="minute_by_km"></div>
   <div class="flex items-center justify-between" id="traffic_statue_value"></div>
   <div class="flex items-center justify-between" id="toll_price_included"></div>
   <!--  <div class="flex items-center justify-between" id="car_km_traffic_price"></div>-->
@@ -126,7 +127,8 @@
         lat: Number(end_loc[0]),
         lng: Number(end_loc[1])
       },
-      travelMode: "DRIVING"
+      travelMode: "DRIVING",
+      provideRouteAlternatives: true,
     };
     directionsService.route(request, function(response, status) {
       if (status == "OK") {
@@ -160,7 +162,7 @@
       document.getElementById("distance").innerHTML = `<div>KM Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.distance} KM</div>`;
       document.getElementById("duration").innerHTML = `<div>Dakika Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration} DK</div>`;
       document.getElementById("duration_in_traffic").innerHTML = `<div>Trafikli Dakika Uzaklığı</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration_in_traffic} DK</div>`;
-      document.getElementById("duration_by_km").innerHTML = `<div>DK / KM</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.duration_by_km}</div>`;
+      document.getElementById("minute_by_km").innerHTML = `<div>DK / KM</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.minute_by_km}</div>`;
       document.getElementById("traffic_statue_value").innerHTML = `<div>Trafik Statü Değeri</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.traffic_statue_value}</div>`;
       document.getElementById("toll_price_included").innerHTML = `<div>Ücretli yoldan geçiyor mu? (Avraysa, O-7)</div><div class="bg-blue-100 text-blue-800 text-sm font-medium  px-2.5 py-0.5 rounded dark:bg-blue-200 dark:text-blue-800">${res.toll_price_included ? "Evet" : "Hayır"}</div>`;
     })();
