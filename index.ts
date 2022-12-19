@@ -226,14 +226,15 @@ app.post(
               minute_by_km: duration_in_traffic / distance,
               duration,
               distance,
+              overview_polyline: route.overview_polyline,
               duration_in_traffic
             });
           });
         });
-        console.log(routeCalculetes);
         let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] < x[f] ? m : x);
         let car_price, motorcycle_price = 0;
         let best_guess = min(routeCalculetes, "minute_by_km");
+
 
         let traffic_statue_value = 0;
         if (best_guess.minute_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && best_guess.minute_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
@@ -244,10 +245,7 @@ app.post(
           const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
           car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
           motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
-          console.log({
-            car_duration_price,
-            car_km_traffic_price
-          });
+
           res.json({
             car_price: car_price,
             motorcycle_price: motorcycle_price,
@@ -255,7 +253,8 @@ app.post(
             duration: best_guess.duration,
             duration_in_traffic: best_guess.duration_in_traffic,
             traffic_statue_value: traffic_statue_value,
-            minute_by_km: best_guess.minute_by_km
+            minute_by_km: best_guess.minute_by_km,
+            overview_polyline: best_guess.overview_polyline
           });
         } else {
           const subsitude_distance = best_guess.distance - Number(process.env.APP_MIN_KM);
@@ -266,7 +265,7 @@ app.post(
           let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
           let mapsConveyor = new MapsConveyor(origin, destination);
           let toll_price_included = false;
-          console.log({ subsitude_distance, car_distance_price, car_km_traffic_price, motorcycle_distance_price });
+
           mapsConveyor.checkIfInside([
             {
               check: "avrasya",
@@ -295,7 +294,8 @@ app.post(
               duration_in_traffic: best_guess.duration_in_traffic,
               minute_by_km: best_guess.minute_by_km,
               traffic_statue_value,
-              toll_price_included
+              toll_price_included,
+              overview_polyline: best_guess.overview_polyline
             });
           });
         }
