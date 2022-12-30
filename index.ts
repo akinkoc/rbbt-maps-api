@@ -8,6 +8,7 @@ import { AxiosError } from "axios";
 const app = express();
 const { Client } = require("@googlemaps/google-maps-services-js");
 require("dotenv").config();
+import {decodePath} from "@googlemaps/google-maps-services-js/dist/util";
 
 const client = new Client({});
 
@@ -160,6 +161,17 @@ app.post(
   }
 );
 
+function decodeLevels(encodedLevelsString: string) {
+  var decodedLevels = [];
+
+  for (var i = 0; i < encodedLevelsString.length; ++i) {
+    var level = encodedLevelsString.charCodeAt(i) - 63;
+    decodedLevels.push(level);
+  }
+
+  return decodedLevels;
+}
+
 app.post(
   "/getPriceCalculation",
   // param('token', 'Token is required').notEmpty().withMessage('Token is missing'),
@@ -209,10 +221,11 @@ app.post(
           traffic_model: TrafficModel.best_guess
         }
       })
-      .then(({ data }: DirectionsResponse) => {
+      .then(async ({ data }: DirectionsResponse) => {
         const { routes } = data;
         if (!routes || routes.length === 0) return;
         let routeCalculetes: any = [];
+
         routes.forEach((route) => {
           if (!route.legs || route.legs.length === 0) return;
           route.legs.forEach((leg) => {
@@ -222,12 +235,14 @@ app.post(
             let duration = Number((leg.duration.value / 60).toFixed(2));
             // FOR MINIMUM DURATION IN TRAFFIC CALCULATION
             let duration_in_traffic = Number(((leg.duration_in_traffic?.value ?? 1) / 60).toFixed(2));
+            const path = decodePath(route.overview_polyline.points.replace(/'/g, "\\'"));
             routeCalculetes.push({
               minute_by_km: duration_in_traffic / distance,
               duration,
               distance,
               overview_polyline: route.overview_polyline,
-              duration_in_traffic
+              duration_in_traffic,
+              waypoints: path
             });
           });
         });
@@ -254,7 +269,8 @@ app.post(
             duration_in_traffic: best_guess.duration_in_traffic + 15,
             traffic_statue_value: traffic_statue_value,
             minute_by_km: best_guess.minute_by_km,
-            overview_polyline: best_guess.overview_polyline
+            overview_polyline: best_guess.overview_polyline,
+            waypoints: best_guess.waypoints
           });
         } else {
           const subsitude_distance = best_guess.distance - Number(process.env.APP_MIN_KM);
@@ -295,7 +311,8 @@ app.post(
               minute_by_km: best_guess.minute_by_km,
               traffic_statue_value,
               toll_price_included,
-              overview_polyline: best_guess.overview_polyline
+              overview_polyline: best_guess.overview_polyline,
+              waypoints: best_guess.waypoints
             });
           });
         }
