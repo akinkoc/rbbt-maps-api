@@ -236,13 +236,15 @@ app.post(
             // FOR MINIMUM DURATION IN TRAFFIC CALCULATION
             let duration_in_traffic = Number(((leg.duration_in_traffic?.value ?? 1) / 60).toFixed(2));
             const path = decodePath(route.overview_polyline.points.replace(/'/g, "\\'"));
+            let updatedPath: { latitude: number; longitude: number; }[] = [];
+            path.map(item => updatedPath.push({latitude: item.lat, longitude: item.lng}));
             routeCalculetes.push({
               minute_by_km: duration_in_traffic / distance,
               duration,
               distance,
               overview_polyline: route.overview_polyline,
               duration_in_traffic,
-              waypoints: path
+              waypoints: updatedPath
             });
           });
         });
