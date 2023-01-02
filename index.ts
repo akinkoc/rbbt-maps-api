@@ -248,7 +248,7 @@ app.post(
             });
           });
         });
-        let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] < x[f] ? m : x);
+        let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] > x[f] ? m : x);
         let car_price, motorcycle_price = 0;
         console.log(routeCalculetes.map((item: any) => (item.minute_by_km + "- km => "+item.distance)));
         let best_guess = min(routeCalculetes, "minute_by_km");
