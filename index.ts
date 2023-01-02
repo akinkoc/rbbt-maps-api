@@ -238,9 +238,13 @@ app.post(
             const path = decodePath(route.overview_polyline.points.replace(/'/g, "\\'"));
             let updatedPath: { latitude: number; longitude: number; }[] = [];
             path.map(item => updatedPath.push({latitude: item.lat, longitude: item.lng}));
+            let calculateMapVal  = (distance * 0.3) + (duration_in_traffic * 0.7);
+            let motorcycleDistances  = distance;
             routeCalculetes.push({
               minute_by_km: duration_in_traffic / distance,
               duration,
+              calculateMapVal,
+              motorcycleDistances,
               distance,
               overview_polyline: route.overview_polyline,
               duration_in_traffic,
@@ -248,11 +252,10 @@ app.post(
             });
           });
         });
-        let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] > x[f] ? m : x);
+        let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] < x[f] ? m : x);
         let car_price, motorcycle_price = 0;
-        console.log(routeCalculetes.map((item: any) => (item.minute_by_km + "- km => "+item.distance)));
-        let best_guess = min(routeCalculetes, "minute_by_km");
-
+        let best_guess = min(routeCalculetes, "calculateMapVal");
+        let best_guess_motorcycle = min(routeCalculetes, "motorcycleDistances");
 
         let traffic_statue_value = 0;
         if (best_guess.minute_by_km > Number(process.env.TRAFFIC_STATUE_FLUENT) && best_guess.minute_by_km < Number(process.env.TRAFFIC_STATUE_INTENSE_FLUID)) traffic_statue_value = 0;
@@ -277,9 +280,10 @@ app.post(
           });
         } else {
           const subsitude_distance = best_guess.distance - Number(process.env.APP_MIN_KM);
+          const subsitude_motorcycle_distance = best_guess_motorcycle.distance - Number(process.env.APP_MIN_KM);
           const car_distance_price = Number((subsitude_distance * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
           const car_km_traffic_price = Number(((Number(process.env.CAR_START_PRICE) + car_distance_price) * traffic_statue_value).toFixed(2));
-          const motorcycle_distance_price = Number((subsitude_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
+          const motorcycle_distance_price = Number((subsitude_motorcycle_distance * Number(process.env.MOTORCYCLE_KM_PER_PRICE)).toFixed(2));
           let car_price = Number((Number(process.env.CAR_START_PRICE) + car_distance_price + car_km_traffic_price).toFixed(2));
           let motorcycle_price = Number((Number(process.env.MOTORCYCLE_START_PRICE) + motorcycle_distance_price).toFixed(2));
           let mapsConveyor = new MapsConveyor(origin, destination);
