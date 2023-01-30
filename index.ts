@@ -4,17 +4,22 @@ import limiter from "./utils/limiter";
 import { body, param, validationResult } from "express-validator";
 import MapsConveyor from "./utils/MapsConveyor";
 import { AxiosError } from "axios";
+import cors from "cors";
 
 const app = express();
 const { Client } = require("@googlemaps/google-maps-services-js");
 require("dotenv").config();
-import {decodePath} from "@googlemaps/google-maps-services-js/dist/util";
+import { decodePath } from "@googlemaps/google-maps-services-js/dist/util";
 
 const client = new Client({});
 
 app.use(limiter);
 app.use(express.json());
 app.use(express.static("public"));
+app.use(cors({
+  methods: ["GET", "POST", "DELETE", "UPDATE", "PUT", "PATCH"],
+  origin: "*"
+}));
 app.post(
   "/getDirections",
   param("token", "Token is required").notEmpty().withMessage("Token is missing"),
@@ -237,9 +242,9 @@ app.post(
             let duration_in_traffic = Number(((leg.duration_in_traffic?.value ?? 1) / 60).toFixed(2));
             const path = decodePath(route.overview_polyline.points.replace(/'/g, "\\'"));
             let updatedPath: { latitude: number; longitude: number; }[] = [];
-            path.map(item => updatedPath.push({latitude: item.lat, longitude: item.lng}));
-            let calculateMapVal  = (distance * 0.3) + (duration_in_traffic * 0.7);
-            let motorcycleDistances  = distance;
+            path.map(item => updatedPath.push({ latitude: item.lat, longitude: item.lng }));
+            let calculateMapVal = (distance * 0.3) + (duration_in_traffic * 0.7);
+            let motorcycleDistances = distance;
             routeCalculetes.push({
               minute_by_km: duration_in_traffic / distance,
               duration,
