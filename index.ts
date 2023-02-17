@@ -258,7 +258,7 @@ app.post(
           });
         });
         let min: any = (a: any, f: any): any => a.reduce((m: any, x: any) => m[f] < x[f] ? m : x);
-        let car_price, motorcycle_price = 0;
+        let car_price: number, motorcycle_price = 0;
         let best_guess = min(routeCalculetes, "calculateMapVal");
         let best_guess_motorcycle = min(routeCalculetes, "motorcycleDistances");
 
@@ -269,19 +269,38 @@ app.post(
         if (best_guess.distance < Number(process.env.APP_MIN_KM)) {
           const car_duration_price = Number((best_guess.duration_in_traffic * Number(process.env.CAR_KM_PER_PRICE)).toFixed(2));
           const car_km_traffic_price = Number((car_duration_price * traffic_statue_value).toFixed(2));
-          car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price).toFixed(2));
+          car_price = Number(Number(Number(process.env.CAR_START_PRICE) + car_km_traffic_price));
           motorcycle_price = Number(process.env.MOTORCYCLE_START_PRICE);
-
-          res.json({
-            car_price: car_price,
-            motorcycle_price: motorcycle_price,
-            distance: best_guess.distance,
-            duration: best_guess.duration + 15,
-            duration_in_traffic: best_guess.duration_in_traffic + 15,
-            traffic_statue_value: traffic_statue_value,
-            minute_by_km: best_guess.minute_by_km,
-            overview_polyline: best_guess.overview_polyline,
-            waypoints: best_guess.waypoints
+          let mapsConveyor = new MapsConveyor(origin, destination);
+          let toll_price_included = false;
+          mapsConveyor.checkIfInside([
+            {
+              check: "avrasya",
+              car_price: 50,
+              motor_price: 20
+            },
+            {
+              check: "o-7",
+              car_price: 20,
+              motor_price: 20
+            }
+          ]).then(({ inside, car_price: car_toll_price, motor_price: motor_toll_price }) => {
+            if (inside) {
+              car_price += car_toll_price;
+              motorcycle_price += motor_toll_price;
+              toll_price_included = true;
+            }
+            res.json({
+              car_price: Number(car_price).toFixed(2),
+              motorcycle_price: motorcycle_price,
+              distance: best_guess.distance,
+              duration: best_guess.duration + 15,
+              duration_in_traffic: best_guess.duration_in_traffic + 15,
+              traffic_statue_value: traffic_statue_value,
+              minute_by_km: best_guess.minute_by_km,
+              overview_polyline: best_guess.overview_polyline,
+              waypoints: best_guess.waypoints
+            });
           });
         } else {
           const subsitude_distance = best_guess.distance - Number(process.env.APP_MIN_KM);
