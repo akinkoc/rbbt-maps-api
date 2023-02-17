@@ -291,7 +291,7 @@ app.post(
               toll_price_included = true;
             }
             res.json({
-              car_price: Number(car_price).toFixed(2),
+              car_price: car_price,
               motorcycle_price: motorcycle_price,
               distance: best_guess.distance,
               duration: best_guess.duration + 15,
