@@ -4,7 +4,8 @@
   "description": "Rabbit Maps API",
   "main": "index.ts",
   "scripts": {
-    "start": "nodemon index.ts"
+    "start": "nodemon index.ts",
+    "start:main": "node index.ts"
   },
   "author": "akin.koc@rbbt.com.tr",
   "license": "MIT",
